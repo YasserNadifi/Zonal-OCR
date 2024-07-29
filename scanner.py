@@ -9,7 +9,7 @@ import numpy as np
 import cv2
 import imutils
 import math
-from deskew.deskew import determine_skew
+from deskew import determine_skew
 
 def rotate(
         image: np.ndarray
