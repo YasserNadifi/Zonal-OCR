@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 '''
-this python file includes many function that bwe will use for image preprocessing
+this python file includes many function that we will use for image preprocessing
 '''
 
 def surface(points):
@@ -59,36 +59,6 @@ def isVerticle(points):
     else: return False
 
 
-def crop_rectangle(image, points):
-    '''
-    crops the image along on the provided points
-
-    image : image to be cropped
-    points: four points that determine the rectangle to be cropped
-    '''
-    x_coords = [p[0] for p in points]
-    y_coords = [p[1] for p in points]
-
-    min_x = int(min(x_coords))
-    max_x = int(max(x_coords))
-    min_y = int(min(y_coords))
-    max_y = int(max(y_coords))
-
-    cropped_image = image[min_y:max_y, min_x:max_x]
-
-    return cropped_image
-
-
-def best_word(result):
-    '''returns the coodinates of the word with the highest confidence score'''
-    best_points=None
-    best_conf=0
-    for line in result:
-        if line[1][1]>best_conf:
-            best_conf=line[1][1]
-            best_points=line[0]
-    return best_points
-
 def rotate_90(img):
     '''
     rotates the image by 90 degrees without cutting the image or extending it
@@ -111,10 +81,3 @@ def rotate_image(image, angle):
     rotated_image = cv2.warpAffine(image, M, (new_w, new_h))
     return rotated_image
 
-
-def average_confidence(result):
-    '''
-    returns the average confidence of the detected words
-    '''
-    conf=[line[1][1] for line in result]
-    return sum(conf)/len(conf)

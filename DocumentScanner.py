@@ -1,72 +1,65 @@
-from scanner import scanner
+from scan import scan_card
+import cv2
 import argparse
 from paddleocr import PaddleOCR
 from langdetect import detect
-import Rectangle
+from llmchat import llmchat
+import json
+import re
+
 
 if __name__=="__main__":
 
-    parser = argparse.ArgumentParser(description='Example script to demonstrate command line argument parsing.')
+    parser = argparse.ArgumentParser(description='DocumentScanner.')
     parser.add_argument('--input', type=str, help='Path to input image')
     args = parser.parse_args()
 
-    img_path=args.input
-    img=scanner(img_path)
-
-    OCRout=""
-    isGood=False
+    image=cv2.imread(args.input)
 
     ocr_ar = PaddleOCR(lang="ar")
-    result = ocr_ar.ocr(img)[0]
+    ocr_fr = PaddleOCR(lang="fr")
 
-    # correcting the orientation of a card, because "determine_deskew" can still return a wrong making the card vertical instead of horizantal
-    # rotate the card from horizantal to vertical
-    largest=Rectangle.largest_rect(result)
-    if Rectangle.isVerticle(largest) :
-        img=Rectangle.rotate_90(img)
-        # cv2.imshow("rot90", img)
-        # cv2.waitKey(0)
-        result = ocr_ar.ocr(img)[0]
-    
-    # correct the card if it's upside down
-    # the way it works is that we choose the word that has the highest confidence score, then we rotate it by 180 degrees 
-    # and read it compare the new confidence score, if the new score is higher it means that the word was upside down and 
-    # it should be rotated by 180 degrees
-    # i choose to use arabic because it is better at reading text when it's upside down
-    points=Rectangle.best_word(result)
-    cropped=Rectangle.crop_rectangle(img,points)
-    max_conf=0
-    deg_correct=0
-    for i in range(2):
-        rot=Rectangle.rotate_image(cropped,i*180)
-        res=ocr_ar.ocr(rot)[0] # reads the text in the image
-        if res is not None :
-            conf = Rectangle.average_confidence(res)
-            if max_conf<conf:
-                max_conf=conf
-                deg_correct=i*180
-    
-    img=Rectangle.rotate_image(img,deg_correct)
-    result = ocr_ar.ocr(img)[0]
+    image=scan_card(image,ocr_fr,ocr_ar,debug=False)
+
+    result = ocr_ar.ocr(image)[0]
 
     # extract text from image
     # in arabic
+    OCRout_ar=""
     for line in result:
         if line[1][1]>0.7:
             word = line[1][0]
             try:
                 if detect(word[::-1])=="ar":
-                    OCRout+=word[::-1] + "\n"
+                    OCRout_ar+=word[::-1] + " "
             except:
                 continue
 
     # in french
-    ocr_fr = PaddleOCR(lang="fr")
-    result = ocr_fr.ocr(img)[0]
+    OCRout_fr=""
+    result = ocr_fr.ocr(image)[0]
     for line in result:
         if line[1][1]>0.8:
-            OCRout+= line[1][0] + "\n"
+            OCRout_fr+= line[1][0] + " "
+    
+    with open('config.json', 'r') as file:
+        config = json.load(file)
+        API_URL = config['api_url']
+        API_KEY = config['api_key']
+        model_id =config['model_id']
+        bot=llmchat(API_URL,API_KEY,model_id)
+        
+        prompt=config['prompt_doc_type']+OCRout_fr
+        type=int(bot.send_prompt(prompt))
+        if type==1: tags=json.dumps(config['prompt_id_tag']) 
+        elif type==2 : tags=json.dumps(config['prompt_permis_tag'])
+        prompt=config['prompt_seperate_tags']+tags
+        bot.send_prompt(prompt)
+        prompt=config['prompt_seperate_tags_ar']+OCRout_ar
+        result=bot.send_prompt(prompt)
+        
+        final_response=re.search(r'\{.*\}', result, re.DOTALL).group()
+    
+    print(final_response)
+    
 
-    # writes the output in a txt file
-    with open("output.txt", 'w', encoding="utf-8") as file:
-        file.write(OCRout)

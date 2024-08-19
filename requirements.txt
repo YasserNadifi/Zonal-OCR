@@ -1,0 +1,8 @@
+opencv-python
+argparse
+paddleocr
+langdetect
+requests
+numpy
+imutils
+deskew
