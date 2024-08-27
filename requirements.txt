@@ -5,4 +5,4 @@ langdetect
 requests
 numpy
 imutils
-deskew
+rembg

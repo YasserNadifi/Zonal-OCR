@@ -1,4 +1,4 @@
-from scan import scan_card
+from ImgProcess import scan_card
 import cv2
 import argparse
 from paddleocr import PaddleOCR
@@ -6,6 +6,14 @@ from langdetect import detect
 from llmchat import llmchat
 import json
 import re
+
+
+def last_int(s):
+    matches = re.findall(r'\d+', s)
+    if matches:
+        return int(matches[-1])
+    else:
+        return None
 
 
 if __name__=="__main__":
@@ -19,7 +27,8 @@ if __name__=="__main__":
     ocr_ar = PaddleOCR(lang="ar")
     ocr_fr = PaddleOCR(lang="fr")
 
-    image=scan_card(image,ocr_fr,ocr_ar,debug=False)
+    # scan the card from the input image
+    image=scan_card(image,ocr_ar,debug=False)
 
     result = ocr_ar.ocr(image)[0]
 
@@ -34,6 +43,8 @@ if __name__=="__main__":
                     OCRout_ar+=word[::-1] + " "
             except:
                 continue
+    
+    print("ocr ar : ",OCRout_ar)
 
     # in french
     OCRout_fr=""
@@ -41,25 +52,46 @@ if __name__=="__main__":
     for line in result:
         if line[1][1]>0.8:
             OCRout_fr+= line[1][0] + " "
-    
-    with open('config.json', 'r') as file:
+    print("ocr fr : ",OCRout_fr)
+
+    # load the config.json
+    with open('config2.json', 'r') as file:
         config = json.load(file)
-        API_URL = config['api_url']
-        API_KEY = config['api_key']
-        model_id =config['model_id']
-        bot=llmchat(API_URL,API_KEY,model_id)
-        
-        prompt=config['prompt_doc_type']+OCRout_fr
-        type=int(bot.send_prompt(prompt))
-        if type==1: tags=json.dumps(config['prompt_id_tag']) 
-        elif type==2 : tags=json.dumps(config['prompt_permis_tag'])
-        prompt=config['prompt_seperate_tags']+tags
-        bot.send_prompt(prompt)
-        prompt=config['prompt_seperate_tags_ar']+OCRout_ar
-        result=bot.send_prompt(prompt)
-        
-        final_response=re.search(r'\{.*\}', result, re.DOTALL).group()
     
-    print(final_response)
+    API_URL = config['api_url']
+    API_KEY = config['api_key']
+    model_id =config['model_id']
+
+    # create a instance of llmchat
+    # this object allows us to communicate with the llm and store both user prompts and llm responses, which allows for conversationnal memory
+    bot=llmchat(API_URL,API_KEY,model_id)
+    
+    # first prompt is to determine the type of the document
+    prompt1=config['prompt_doc_type']
+    prompt1=prompt1.replace("${ocr_fr}",OCRout_fr)
+    response1=bot.send_prompt(prompt1)
+
+    print("\ndoc type response: ",response1)
+    type=last_int(response1)
+
+    if type==1: tags=config['prompt_id_tag']
+    elif type==2 : tags=config['prompt_permis_tag']
+
+    # the second prompt is to seperate the french ocr text into tags and structure it into a json file
+    prompt2=config['prompt_seperate_tags']
+    prompt2=prompt2.replace("${tags}",tags)
+    prompt2=prompt2.replace("${ocr_fr}",OCRout_fr)
+    result=bot.send_prompt(prompt2)
+
+    print(result)
+
+    # the third prompt is to add arabic values to the json file
+    prompt3=config['prompt_seperate_tags_ar2']
+    prompt3=prompt3.replace("${ocr_ar}",OCRout_ar)
+    result=bot.send_prompt(prompt3)
+        
+    # final_response=re.search(r'\{.*\}', result, re.DOTALL).group()
+    
+    print(result)
     
 
