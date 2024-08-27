@@ -507,8 +507,6 @@ def scan_card(image,ocr_ar,debug=False):
     return rotated
 
 
-from pathlib import Path
-
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser(description="scan_card")
@@ -521,18 +519,3 @@ if __name__=="__main__":
 
     image = cv2.imread(args.input)
     final = scan_card(image,ocr_ar=ocr_ar,debug=True)
-
-    # for file in Path('./input/').glob('*.jpg'):
-    #     input_path = str(file)
-    #     output_path = str(file.parent / (file.stem + ".out.png"))
-
-    #     with open(input_path, 'rb') as i:
-    #         with open(output_path, 'wb') as o:
-    #             image=cv2.imread(input_path)
-    #             try:
-    #                 final = scan_card(image,ocr_ar=ocr_ar,debug=False)
-    #             except Exception as e:
-    #                 print(f"Exception: {str(e)}")
-    #                 cv2.destroyAllWindows()
-    #                 continue
-    #             cv2.imwrite(output_path,final)
